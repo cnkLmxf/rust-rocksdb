@@ -37,6 +37,7 @@ pub struct Snapshot<'a> {
 
 impl<'a> Snapshot<'a> {
     /// Creates a new `Snapshot` of the database `db`.
+    ///创建数据库db的新快照。
     pub fn new(db: &DB) -> Snapshot {
         let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.inner) };
         Snapshot {
@@ -46,6 +47,7 @@ impl<'a> Snapshot<'a> {
     }
 
     /// Creates an iterator over the data in this snapshot, using the default read options.
+    ///使用默认的读取选项在此快照中的数据上创建一个迭代器。
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator<'a> {
         let readopts = ReadOptions::default();
         self.iterator_opt(mode, readopts)
@@ -53,12 +55,14 @@ impl<'a> Snapshot<'a> {
 
     /// Creates an iterator over the data in this snapshot under the given column family, using
     /// the default read options.
+    ///使用默认的读取选项，在给定列族下的此快照中的数据上创建一个迭代器。
     pub fn iterator_cf(&self, cf_handle: &ColumnFamily, mode: IteratorMode) -> DBIterator {
         let readopts = ReadOptions::default();
         self.iterator_cf_opt(cf_handle, readopts, mode)
     }
 
     /// Creates an iterator over the data in this snapshot, using the given read options.
+    ///使用给定的读取选项在此快照中的数据上创建一个迭代器。
     pub fn iterator_opt(&self, mode: IteratorMode, mut readopts: ReadOptions) -> DBIterator<'a> {
         readopts.set_snapshot(self);
         DBIterator::new(self.db, readopts, mode)
@@ -66,6 +70,7 @@ impl<'a> Snapshot<'a> {
 
     /// Creates an iterator over the data in this snapshot under the given column family, using
     /// the given read options.
+    ///使用给定的读取选项，在给定列族下的快照中的数据上创建一个迭代器。
     pub fn iterator_cf_opt(
         &self,
         cf_handle: &ColumnFamily,
@@ -77,6 +82,7 @@ impl<'a> Snapshot<'a> {
     }
 
     /// Creates a raw iterator over the data in this snapshot, using the default read options.
+    ///使用默认的读取选项在此快照中的数据上创建原始迭代器。
     pub fn raw_iterator(&self) -> DBRawIterator {
         let readopts = ReadOptions::default();
         self.raw_iterator_opt(readopts)
@@ -84,12 +90,14 @@ impl<'a> Snapshot<'a> {
 
     /// Creates a raw iterator over the data in this snapshot under the given column family, using
     /// the default read options.
+    ///使用默认的读取选项，在给定列族下的此快照中的数据上创建原始迭代器。
     pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> DBRawIterator {
         let readopts = ReadOptions::default();
         self.raw_iterator_cf_opt(cf_handle, readopts)
     }
 
     /// Creates a raw iterator over the data in this snapshot, using the given read options.
+    ///使用给定的读取选项，在此快照中的数据上创建原始迭代器。
     pub fn raw_iterator_opt(&self, mut readopts: ReadOptions) -> DBRawIterator {
         readopts.set_snapshot(self);
         DBRawIterator::new(self.db, readopts)
@@ -97,6 +105,7 @@ impl<'a> Snapshot<'a> {
 
     /// Creates a raw iterator over the data in this snapshot under the given column family, using
     /// the given read options.
+    ///使用给定的读取选项，在给定列族下的此快照中的数据上创建原始迭代器。
     pub fn raw_iterator_cf_opt(
         &self,
         cf_handle: &ColumnFamily,
@@ -107,6 +116,7 @@ impl<'a> Snapshot<'a> {
     }
 
     /// Returns the bytes associated with a key value with default read options.
+    ///返回具有默认读取选项的键值的字节。
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
         let readopts = ReadOptions::default();
         self.get_opt(key, readopts)
@@ -114,6 +124,7 @@ impl<'a> Snapshot<'a> {
 
     /// Returns the bytes associated with a key value and given column family with default read
     /// options.
+    ///返回与键值和给定列族关联的字节，并带有默认读取选项。
     pub fn get_cf<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -124,6 +135,7 @@ impl<'a> Snapshot<'a> {
     }
 
     /// Returns the bytes associated with a key value and given read options.
+    ///返回与键值和给定的读取选项关联的字节。
     pub fn get_opt<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -134,6 +146,7 @@ impl<'a> Snapshot<'a> {
     }
 
     /// Returns the bytes associated with a key value, given column family and read options.
+    ///返回给定列族和读取选项的与键值关联的字节。
     pub fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -155,5 +168,6 @@ impl<'a> Drop for Snapshot<'a> {
 
 /// `Send` and `Sync` implementations for `Snapshot` are safe, because `Snapshot` is
 /// immutable and can be safely shared between threads.
+///`Snapshot`的`Send`和`Sync`实现是安全的，因为`Snapshot`是不可变的并且可以在线程之间安全地共享。
 unsafe impl<'a> Send for Snapshot<'a> {}
 unsafe impl<'a> Sync for Snapshot<'a> {}

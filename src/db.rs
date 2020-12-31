@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-
+//todo https://github.com/facebook/rocksdb/blob/394210f280c6e7bc0e1210409fe326250a163d53/db/c.cc 这是 rocksdb对 ffi函数的具体实现
 use crate::{
     ffi,
     ffi_util::{opt_bytes_to_ptr, to_cpath},
@@ -45,13 +45,16 @@ pub struct DB {
 // Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
 // pointer. In most cases, however, this pointer is Send-safe because it is never aliased and
 // rocksdb internally does not rely on thread-local information for its user-exposed types.
+//安全注意事项：内部FFI指针阻止自动实现对大多数与数据库相关的类型的发送。 但是，在大多数情况下，此指针是发送安全的，因为它从不别名，并且rocksdb在内部不依赖于线程本地信息作为其用户暴露类型。
 unsafe impl Send for DB {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
+//同步对于许多类型同样安全，因为它们不公开内部可变性，并且在rocksdb库中使用它们通常在const引用后面
 unsafe impl Sync for DB {}
 
 // Specifies whether open DB for read only.
+//指定是否打开只读数据库。
 enum AccessType<'a> {
     ReadWrite,
     ReadOnly { error_if_log_file_exist: bool },
@@ -61,6 +64,7 @@ enum AccessType<'a> {
 
 impl DB {
     /// Opens a database with default options.
+    /// ///用默认选项打开一个数据库。
     pub fn open_default<P: AsRef<Path>>(path: P) -> Result<DB, Error> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
@@ -68,11 +72,13 @@ impl DB {
     }
 
     /// Opens the database with the specified options.
+    /// ///使用指定的选项打开数据库。
     pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
         DB::open_cf(opts, path, None::<&str>)
     }
 
     /// Opens the database for read only with the specified options.
+    /// ///以指定的选项打开数据库以只读。
     pub fn open_for_read_only<P: AsRef<Path>>(
         opts: &Options,
         path: P,
@@ -82,6 +88,7 @@ impl DB {
     }
 
     /// Opens the database as a secondary.
+    ///作为辅助数据库打开数据库。
     pub fn open_as_secondary<P: AsRef<Path>>(
         opts: &Options,
         primary_path: P,
@@ -91,6 +98,7 @@ impl DB {
     }
 
     /// Opens the database with a Time to Live compaction filter.
+    ///使用生存时间压缩过滤器打开数据库。
     pub fn open_with_ttl<P: AsRef<Path>>(
         opts: &Options,
         path: P,
@@ -112,6 +120,8 @@ impl DB {
     /// Opens a database with the given database options and column family names.
     ///
     /// Column families opened using this function will be created with default `Options`.
+    /// 用给定的数据库选项和列族名称打开一个数据库。
+    /// 使用此功能打开的列族将使用默认的“Options”创建。
     pub fn open_cf<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
     where
         P: AsRef<Path>,
@@ -126,6 +136,7 @@ impl DB {
     }
 
     /// Opens a database for read only with the given database options and column family names.
+    ///以给定的数据库选项和列族名称打开只读数据库。
     pub fn open_cf_for_read_only<P, I, N>(
         opts: &Options,
         path: P,
@@ -152,6 +163,7 @@ impl DB {
     }
 
     /// Opens the database as a secondary with the given database options and column family names.
+    ///使用给定的数据库选项和列族名称作为辅助数据库打开数据库。
     pub fn open_cf_as_secondary<P, I, N>(
         opts: &Options,
         primary_path: P,
@@ -178,6 +190,7 @@ impl DB {
     }
 
     /// Opens a database with the given database options and column family descriptors.
+    ///用给定的数据库选项和列族描述符打开一个数据库。
     pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
     where
         P: AsRef<Path>,
@@ -187,6 +200,7 @@ impl DB {
     }
 
     /// Internal implementation for opening RocksDB.
+    ///用于打开RocksDB的内部实现。
     fn open_cf_descriptors_internal<P, I>(
         opts: &Options,
         path: P,
@@ -224,6 +238,7 @@ impl DB {
             }
             // We need to store our CStrings in an intermediate vector
             // so that their pointers remain valid.
+            //我们需要将CStrings存储在中间向量中，以使它们的指针保持有效。
             let c_cfs: Vec<CString> = cfs_v
                 .iter()
                 .map(|cf| CString::new(cf.name.as_bytes()).unwrap())
@@ -232,6 +247,7 @@ impl DB {
             let cfnames: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
 
             // These handles will be populated by DB.
+            //这些句柄将由DB填充。
             let mut cfhandles: Vec<_> = cfs_v.iter().map(|_| ptr::null_mut()).collect();
 
             let cfopts: Vec<_> = cfs_v
@@ -372,7 +388,7 @@ impl DB {
             Ok(vec)
         }
     }
-
+    //销毁db
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
         let cpath = to_cpath(path)?;
         unsafe {
@@ -402,11 +418,13 @@ impl DB {
     }
 
     /// Flushes database memtables to SST files on the disk using default options.
+    ///使用默认选项将数据库内存表刷新为磁盘上的SST文件。
     pub fn flush(&self) -> Result<(), Error> {
         self.flush_opt(&FlushOptions::default())
     }
 
     /// Flushes database memtables to SST files on the disk for a given column family.
+    ///将数据库内存表刷新为给定列族的磁盘上的SST文件。
     pub fn flush_cf_opt(&self, cf: &ColumnFamily, flushopts: &FlushOptions) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_flush_cf(self.inner, flushopts.inner, cf.inner));
@@ -416,6 +434,7 @@ impl DB {
 
     /// Flushes database memtables to SST files on the disk for a given column family using default
     /// options.
+    ///使用默认选项，将数据库内存表刷新为给定列族的磁盘上的SST文件。
     pub fn flush_cf(&self, cf: &ColumnFamily) -> Result<(), Error> {
         self.flush_cf_opt(cf, &FlushOptions::default())
     }
@@ -440,6 +459,7 @@ impl DB {
     /// Return the bytes associated with a key value with read options. If you only intend to use
     /// the vector returned temporarily, consider using [`get_pinned_opt`](#method.get_pinned_opt)
     /// to avoid unnecessary memory copy.
+    ///返回带有读取选项的键值所关联的字节。 如果仅打算使用临时返回的向量，请考虑使用[`get_pinned_opt`]（＃method.get_pinned_opt）以避免不必要的内存复制。
     pub fn get_opt<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -452,6 +472,7 @@ impl DB {
     /// Return the bytes associated with a key value. If you only intend to use the vector returned
     /// temporarily, consider using [`get_pinned`](#method.get_pinned) to avoid unnecessary memory
     /// copy.
+    ///返回与键值关联的字节。 如果仅打算使用临时返回的向量，请考虑使用[`get_pinned`]（＃method.get_pinned）以避免不必要的内存复制。
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
         self.get_opt(key.as_ref(), &ReadOptions::default())
     }
@@ -459,6 +480,7 @@ impl DB {
     /// Return the bytes associated with a key value and the given column family with read options.
     /// If you only intend to use the vector returned temporarily, consider using
     /// [`get_pinned_cf_opt`](#method.get_pinned_cf_opt) to avoid unnecessary memory.
+    ///返回与键值关联的字节以及具有读取选项给定的cf。 如果仅打算使用临时返回的向量，请考虑使用[`get_pinned_cf_opt`]（＃method.get_pinned_cf_opt）以避免不必要的内存。
     pub fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -472,6 +494,7 @@ impl DB {
     /// Return the bytes associated with a key value and the given column family. If you only
     /// intend to use the vector returned temporarily, consider using
     /// [`get_pinned_cf`](#method.get_pinned_cf) to avoid unnecessary memory.
+    ///返回与键值和给定列族相关联的字节。 如果只打算使用临时返回的向量，请考虑使用[`get_pinned_cf`]（＃method.get_pinned_cf）以避免不必要的内存。
     pub fn get_cf<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -482,6 +505,7 @@ impl DB {
 
     /// Return the value associated with a key using RocksDB's PinnableSlice
     /// so as to avoid unnecessary memory copy.
+    ///使用RocksDB的PinnableSlice返回与键关联的值，以避免不必要的内存复制。
     pub fn get_pinned_opt<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -514,6 +538,7 @@ impl DB {
     /// Return the value associated with a key using RocksDB's PinnableSlice
     /// so as to avoid unnecessary memory copy. Similar to get_pinned_opt but
     /// leverages default options.
+    ///使用RocksDB的PinnableSlice返回与键关联的值，以避免不必要的内存复制。 与get_pinned_opt相似，但利用默认选项。
     pub fn get_pinned<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>, Error> {
         self.get_pinned_opt(key, &ReadOptions::default())
     }
@@ -521,6 +546,7 @@ impl DB {
     /// Return the value associated with a key using RocksDB's PinnableSlice
     /// so as to avoid unnecessary memory copy. Similar to get_pinned_opt but
     /// allows specifying ColumnFamily
+    ///使用RocksDB的PinnableSlice返回与键关联的值，以避免不必要的内存复制。 与get_pinned_opt相似，但允许指定ColumnFamily
     pub fn get_pinned_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -555,6 +581,7 @@ impl DB {
     /// Return the value associated with a key using RocksDB's PinnableSlice
     /// so as to avoid unnecessary memory copy. Similar to get_pinned_cf_opt but
     /// leverages default options.
+    ///使用RocksDB的PinnableSlice返回与键关联的值，以避免不必要的内存复制。 与get_pinned_cf_opt相似，但利用默认选项。
     pub fn get_pinned_cf<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -596,6 +623,7 @@ impl DB {
     }
 
     /// Return the underlying column family handle.
+    ///返回基础列族句柄。
     pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
         self.cfs.get(name)
     }
@@ -615,6 +643,7 @@ impl DB {
 
     /// Opens an iterator using the provided ReadOptions.
     /// This is used when you want to iterate over a specific ColumnFamily with a modified ReadOptions
+    ///使用提供的ReadOptions打开迭代器。 当您要使用修改的ReadOptions遍历特定的ColumnFamily时使用此方法
     pub fn iterator_cf_opt<'a: 'b, 'b>(
         &'a self,
         cf_handle: &ColumnFamily,
@@ -627,12 +656,13 @@ impl DB {
     /// Opens an iterator with `set_total_order_seek` enabled.
     /// This must be used to iterate across prefixes when `set_memtable_factory` has been called
     /// with a Hash-based implementation.
+    ///打开启用了“set_total_order_seek”的迭代器。 当使用基于Hash的实现调用set_memtable_factory时，必须使用它来遍历前缀。
     pub fn full_iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
         let mut opts = ReadOptions::default();
         opts.set_total_order_seek(true);
         DBIterator::new(self, opts, mode)
     }
-
+    //前缀迭代器
     pub fn prefix_iterator<'a: 'b, 'b, P: AsRef<[u8]>>(&'a self, prefix: P) -> DBIterator<'b> {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
@@ -642,7 +672,7 @@ impl DB {
             IteratorMode::From(prefix.as_ref(), Direction::Forward),
         )
     }
-
+    //指定cf的迭代器
     pub fn iterator_cf<'a: 'b, 'b>(
         &'a self,
         cf_handle: &ColumnFamily,
@@ -678,23 +708,27 @@ impl DB {
     }
 
     /// Opens a raw iterator over the database, using the default read options
+    ///使用默认的读取选项在数据库上打开原始迭代器
     pub fn raw_iterator<'a: 'b, 'b>(&'a self) -> DBRawIterator<'b> {
         let opts = ReadOptions::default();
         DBRawIterator::new(self, opts)
     }
 
     /// Opens a raw iterator over the given column family, using the default read options
+    ///使用默认的读取选项在给定的列族上打开原始迭代器
     pub fn raw_iterator_cf<'a: 'b, 'b>(&'a self, cf_handle: &ColumnFamily) -> DBRawIterator<'b> {
         let opts = ReadOptions::default();
         DBRawIterator::new_cf(self, cf_handle, opts)
     }
 
     /// Opens a raw iterator over the database, using the given read options
+    ///使用给定的读取选项在数据库上打开原始迭代器
     pub fn raw_iterator_opt<'a: 'b, 'b>(&'a self, readopts: ReadOptions) -> DBRawIterator<'b> {
         DBRawIterator::new(self, readopts)
     }
 
     /// Opens a raw iterator over the given column family, using the given read options
+    ///使用给定的读取选项在给定的列族上打开原始迭代器
     pub fn raw_iterator_cf_opt<'a: 'b, 'b>(
         &'a self,
         cf_handle: &ColumnFamily,
@@ -844,6 +878,7 @@ impl DB {
     }
 
     /// Removes the database entries in the range `["from", "to")` using given write options.
+    ///使用给定的写选项删除范围为[[“ from”，“ to”）`的数据库条目。
     pub fn delete_range_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -909,6 +944,7 @@ impl DB {
     }
 
     /// Removes the database entries in the range `["from", "to")` using default write options.
+    ///使用默认的写选项删除范围为[[“ from”，“ to”）`的数据库条目。
     pub fn delete_range_cf<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -987,6 +1023,8 @@ impl DB {
     /// Retrieves a RocksDB property by name.
     ///
     /// Full list of properties could be find
+    ///通过名称检索RocksDB属性。
+     ///可以找到完整的属性列表
     /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
     pub fn property_value(&self, name: &str) -> Result<Option<String>, Error> {
         let prop_name = match CString::new(name) {
@@ -1023,6 +1061,8 @@ impl DB {
     /// Retrieves a RocksDB property by name, for a specific column family.
     ///
     /// Full list of properties could be find
+    ///按名称检索特定列族的RocksDB属性。
+     ///可以找到完整的属性列表
     /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
     pub fn property_value_cf(
         &self,
@@ -1063,6 +1103,8 @@ impl DB {
     /// Retrieves a RocksDB property and casts it to an integer.
     ///
     /// Full list of properties that return int values could be find
+    ///检索RocksDB属性并将其强制转换为整数。
+     ///可以找到返回int值的属性的完整列表
     /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689).
     pub fn property_int_value(&self, name: &str) -> Result<Option<u64>, Error> {
         match self.property_value(name) {
@@ -1081,6 +1123,8 @@ impl DB {
     /// Retrieves a RocksDB property for a specific column family and casts it to an integer.
     ///
     /// Full list of properties that return int values could be find
+    ///检索特定列族的RocksDB属性，并将其转换为整数。
+     ///可以找到返回int值的属性的完整列表
     /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689).
     pub fn property_int_value_cf(
         &self,
